@@ -38,14 +38,14 @@ TARGET_MODULES = [
     "up_proj",
 ]
 DATA_PATH = "data/data_tmp.json"
-OUTPUT_DIR = "checkpoints/{}".format(size)
+OUTPUT_DIR = f"checkpoints/{size}"
 
 if not os.path.exists("data"):
     os.makedirs("data")
 # Load data
 data = []
 for x in sys.argv[4].split(","):
-    data += json.load(open("data/{}_chat_data.json".format(x)))
+    data += json.load(open(f"data/{x}_chat_data.json"))
 random.shuffle(data)
 json.dump(data, open(DATA_PATH, "w"))
 data = load_dataset("json", data_files=DATA_PATH)
@@ -59,14 +59,14 @@ if ddp:
     GRADIENT_ACCUMULATION_STEPS = GRADIENT_ACCUMULATION_STEPS // world_size
 
 model = LlamaForCausalLM.from_pretrained(
-    "decapoda-research/llama-{}-hf".format(size),
+    f"decapoda-research/llama-{size}-hf",
     load_in_8bit=True,
     device_map=device_map,
 )
 total_params, params = 0, 0
 
 tokenizer = LlamaTokenizer.from_pretrained(
-    "decapoda-research/llama-{}-hf".format(size), add_eos_token=True
+    f"decapoda-research/llama-{size}-hf", add_eos_token=True
 )
 
 model = prepare_model_for_int8_training(model)
@@ -85,14 +85,12 @@ model = get_peft_model(model, config)
 tokenizer.pad_token_id = 0
 
 for n, p in model.model.named_parameters():
-    if any([x in n for x in ["lora"]]):
+    if any(x in n for x in ["lora"]):
         total_params += p.numel()
     params += p.numel()
 
 print(
-    "Total number of parameters: {}M, rate: {}%".format(
-        total_params // 1000 / 1000, round(total_params / params * 100, 2)
-    )
+    f"Total number of parameters: {total_params // 1000 / 1000}M, rate: {round(total_params / params * 100, 2)}%"
 )
 
 
@@ -150,10 +148,12 @@ trainer = transformers.Trainer(
         save_steps=200,
         output_dir=OUTPUT_DIR,
         save_total_limit=100,
-        load_best_model_at_end=True if VAL_SET_SIZE > 0 else False,
+        load_best_model_at_end=VAL_SET_SIZE > 0,
         ddp_find_unused_parameters=False if ddp else None,
     ),
-    data_collator=transformers.DataCollatorForLanguageModeling(tokenizer, mlm=False),
+    data_collator=transformers.DataCollatorForLanguageModeling(
+        tokenizer, mlm=False
+    ),
 )
 model.config.use_cache = False
 

@@ -117,17 +117,11 @@ def convert_asis(userinput):
 
 
 def detect_converted_mark(userinput):
-    if userinput.endswith(ALREADY_CONVERTED_MARK):
-        return True
-    else:
-        return False
+    return bool(userinput.endswith(ALREADY_CONVERTED_MARK))
 
 
 def detect_language(code):
-    if code.startswith("\n"):
-        first_line = ""
-    else:
-        first_line = code.strip().split("\n", 1)[0]
+    first_line = "" if code.startswith("\n") else code.strip().split("\n", 1)[0]
     language = first_line.lower() if first_line else ""
     code_without_language = code[len(first_line) :].lstrip() if first_line else code
     return language, code_without_language
@@ -183,10 +177,7 @@ def add_language_tag(text):
         code_block = match.group(2)
         if match.group(2).startswith("\n"):
             language = detect_language(code_block)
-            if language:
-                return f"```{language}{code_block}```"
-            else:
-                return f"```\n{code_block}```"
+            return f"```{language}{code_block}```" if language else f"```\n{code_block}```"
         else:
             return match.group(1) + code_block + "```"
 
@@ -259,12 +250,13 @@ def sample_decode(
     generated_tokens = []
     past_key_values = None
     current_length = 1
-    for i in range(max_length):
+    for _ in range(max_length):
         with torch.no_grad():
-            if past_key_values is None:
-                outputs = model(input_ids)
-            else:
-                outputs = model(input_ids[:, -1:], past_key_values=past_key_values)
+            outputs = (
+                model(input_ids)
+                if past_key_values is None
+                else model(input_ids[:, -1:], past_key_values=past_key_values)
+            )
             logits = outputs.logits[:, -1, :]
             past_key_values = outputs.past_key_values
 
@@ -294,27 +286,26 @@ def sample_decode(
         text = tokenizer.decode(generated_tokens)
 
         yield text
-        if any([x in text for x in stop_words]):
+        if any(x in text for x in stop_words):
             return
 
 
 def generate_prompt_with_history(text, history, tokenizer, max_length=2048):
     prompt = "The following is a conversation between a human and an AI assistant named Baize (named after a mythical creature in Chinese folklore). Baize is an open-source AI assistant developed by UCSD and Sun Yat-Sen University. The human and the AI assistant take turns chatting. Human statements start with [|Human|] and AI assistant statements start with [|AI|]. The AI assistant always provides responses in as much detail as possible, and in Markdown format. The AI assistant always declines to engage with topics, questions and instructions related to unethical, controversial, or sensitive issues. Complete the transcript in exactly that format.\n[|Human|]Hello!\n[|AI|]Hi!"
-    history = ["\n[|Human|]{}\n[|AI|]{}".format(x[0], x[1]) for x in history]
-    history.append("\n[|Human|]{}\n[|AI|]".format(text))
+    history = [f"\n[|Human|]{x[0]}\n[|AI|]{x[1]}" for x in history]
+    history.append(f"\n[|Human|]{text}\n[|AI|]")
     history_text = ""
     flag = False
     for x in history[::-1]:
         if (
-            tokenizer(prompt + history_text + x, return_tensors="pt")["input_ids"].size(
-                -1
-            )
-            <= max_length
+            tokenizer(prompt + history_text + x, return_tensors="pt")[
+                "input_ids"
+            ].size(-1)
+            > max_length
         ):
-            history_text = x + history_text
-            flag = True
-        else:
             break
+        history_text = x + history_text
+        flag = True
     if flag:
         return prompt + history_text, tokenizer(
             prompt + history_text, return_tensors="pt"
@@ -334,11 +325,7 @@ def is_stop_word_or_prefix(s: str, stop_words: list) -> bool:
 
 
 def load_tokenizer_and_model(base_model, adapter_model, load_8bit=False):
-    if torch.cuda.is_available():
-        device = "cuda"
-    else:
-        device = "cpu"
-
+    device = "cuda" if torch.cuda.is_available() else "cpu"
     try:
         if torch.backends.mps.is_available():
             device = "mps"

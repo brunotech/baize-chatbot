@@ -101,7 +101,7 @@ def retry(
         return
     chatbot.pop()
     inputs = history.pop()[0]
-    for x in predict(
+    yield from predict(
         inputs,
         chatbot,
         history,
@@ -109,8 +109,7 @@ def retry(
         temperature,
         max_length_tokens,
         max_context_length_tokens,
-    ):
-        yield x
+    )
 
 
 gr.Chatbot.postprocess = postprocess
