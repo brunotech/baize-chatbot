@@ -28,7 +28,7 @@ def postprocess(
     Returns:
         List of tuples representing the message and response. Each message and response will be a string of HTML.
     """
-    if y is None or y == []:
+    if y is None or not y:
         return []
     temp = []
     for x in y:

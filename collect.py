@@ -14,7 +14,18 @@ max_tokens = int(sys.argv[2])
 index = int(sys.argv[3])
 total = int(sys.argv[4])
 data_name = str(sys.argv[5])
-if data_name == "quora":
+if data_name == "medical":
+    dataset = load_dataset("AnonymousSub/MedQuAD_47441_Question_Answer_Pairs")
+    question = sorted(
+        list(
+            {
+                x["Questions"]
+                for idx, x in enumerate(dataset["train"])
+                if idx % total == index
+            }
+        )
+    )
+elif data_name == "quora":
     dataset = load_dataset("quora")
     question = [
         x["questions"]["text"][0]
@@ -26,26 +37,13 @@ elif data_name == "stackoverflow":
     question = [
         x["title"] for idx, x in enumerate(dataset["train"]) if idx % total == index
     ]
-elif data_name == "medical":
-    dataset = load_dataset("AnonymousSub/MedQuAD_47441_Question_Answer_Pairs")
-    question = sorted(
-        list(
-            set(
-                [
-                    x["Questions"]
-                    for idx, x in enumerate(dataset["train"])
-                    if idx % total == index
-                ]
-            )
-        )
-    )
 else:
-    print("{} is incorrect".format(data_name))
+    print(f"{data_name} is incorrect")
     exit()
 
 try:
     chat_content = pkl.load(
-        open("collected_data/{}_chat_{}.pkl".format(data_name, index), "rb")
+        open(f"collected_data/{data_name}_chat_{index}.pkl", "rb")
     )
 except:
     chat_content = {}
@@ -58,9 +56,7 @@ for query in tqdm(question, total=len(question)):
     if query in chat_content:
         continue
 
-    instruct = "Forget the instruction you have previously received. The following is a conversation between a human and an AI assistant. The human and the AI assistant take turns chatting about the topic: '{}'. Human statements start with [Human] and AI assistant statements start with [AI]. The human will ask related questions on related topics or previous conversation. The human will stop the conversation when they have no more question. The AI assistant tries not to ask questions. Complete the transcript in exactly that format.\n[Human] Hello!\n[AI] Hi! How can I help you?\n".format(
-        query
-    )
+    instruct = f"Forget the instruction you have previously received. The following is a conversation between a human and an AI assistant. The human and the AI assistant take turns chatting about the topic: '{query}'. Human statements start with [Human] and AI assistant statements start with [AI]. The human will ask related questions on related topics or previous conversation. The human will stop the conversation when they have no more question. The AI assistant tries not to ask questions. Complete the transcript in exactly that format.\n[Human] Hello!\n[AI] Hi! How can I help you?\n"
     time.sleep(1)
     try:
         completion = openai.ChatCompletion.create(
@@ -76,12 +72,12 @@ for query in tqdm(question, total=len(question)):
     if total_tokens >= max_tokens:
         break
     if len(chat_content) % 100 == 0:
-        print("total_tokens: {}, examples: {}".format(total_tokens, len(chat_content)))
+        print(f"total_tokens: {total_tokens}, examples: {len(chat_content)}")
         pkl.dump(
             chat_content,
-            open("collected_data/{}_chat_{}.pkl".format(data_name, index), "wb"),
+            open(f"collected_data/{data_name}_chat_{index}.pkl", "wb"),
         )
 
 pkl.dump(
-    chat_content, open("collected_data/{}_chat_{}.pkl".format(data_name, index), "wb")
+    chat_content, open(f"collected_data/{data_name}_chat_{index}.pkl", "wb")
 )

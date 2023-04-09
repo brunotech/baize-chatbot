@@ -11,9 +11,7 @@ if not os.path.exists("data"):
 data = []
 for i in range(100):
     try:
-        temp = pickle.load(
-            open("collected_data/{}_chat_{}.pkl".format(data_name, i), "rb")
-        )
+        temp = pickle.load(open(f"collected_data/{data_name}_chat_{i}.pkl", "rb"))
     except:
         continue
     for topic in temp:
@@ -22,19 +20,11 @@ for i in range(100):
         if len(x) != 0:
             s = ""
             for y in x:
-                if "[AI]" in y:
-                    y = y.split("[AI]")
-                    if len(y) == 2:
-                        s += (
-                            "[|Human|] "
-                            + y[0].strip()
-                            + "\n"
-                            + "[|AI|] "
-                            + y[1].strip()
-                            + "\n"
-                        )
-                    else:
-                        break
+                if "[AI]" not in y:
+                    break
+                y = y.split("[AI]")
+                if len(y) == 2:
+                    s += f"[|Human|] {y[0].strip()}" + "\n" + "[|AI|] " + y[1].strip() + "\n"
                 else:
                     break
             if s != "":
@@ -43,4 +33,4 @@ for i in range(100):
 
                 data.append({"topic": topic, "input": s})
 
-json.dump(data, open("data/{}_chat_data.json".format(data_name), "w"))
+json.dump(data, open(f"data/{data_name}_chat_data.json", "w"))
